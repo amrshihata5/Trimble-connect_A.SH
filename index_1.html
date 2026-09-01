@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>QTO Steel Report</title>
+<script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; margin: 16px; font-size: 14px; }
+  h2 { margin-top: 0; }
+  label { display: block; margin: 6px 0 2px; font-weight: bold; }
+  input { width: 100%; padding: 4px; box-sizing: border-box; }
+  #status { margin: 10px 0; color: #555; }
+  button { margin-top: 12px; padding: 8px 16px; cursor: pointer; }
+  table { border-collapse: collapse; margin-top: 12px; width: 100%; }
+  th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: right; font-size: 12px; }
+  th:first-child, td:first-child { text-align: left; }
+</style>
+</head>
+<body>
+
+<h2>QTO — Structural Steel Report</h2>
+
+<label>Project</label><input id="hf_project" value="MOPCO">
+<label>Part</label><input id="hf_part">
+<label>Revision</label><input id="hf_rev">
+<label>Ground Level</label><input id="hf_ground">
+<label>CU Name</label><input id="hf_cu">
+
+<div id="status">Connecting to Trimble Connect...</div>
+<button id="btnGenerate" disabled>Generate Report</button>
+
+<div id="preview"></div>
+
+<script>
+// ---- Size bracket rule (kg/m -> bucket) ------------------------------
+// XS <30, S 30-59, M 60-89, L 90-119, XL 120-180, XXL >180
+function bucketFor(weightPerM_kg) {
+  if (weightPerM_kg < 30) return "XS";
+  if (weightPerM_kg < 60) return "S";
+  if (weightPerM_kg < 90) return "M";
+  if (weightPerM_kg < 120) return "L";
+  if (weightPerM_kg <= 180) return "XL";
+  return "XXL";
+}
+const BUCKET_ORDER = ["XS", "S", "M", "L", "XL", "XXL"];
+
+let API = null;
+let modelObjectsCache = []; // {material, weightM_kg, weightNet_t}
+
+const statusEl = document.getElementById("status");
+const btn = document.getElementById("btnGenerate");
+
+async function init() {
+  try {
+    API = await TrimbleConnectWorkspace.connect(window.parent, onEvent, 30000);
+    await API.extension.requestPermission("accessToken");
+    statusEl.textContent = "Connected. Reading model objects...";
+    await loadObjects();
+    btn.disabled = false;
+    statusEl.textContent = `Loaded ${modelObjectsCache.length} steel object(s). Ready to generate.`;
+  } catch (err) {
+    statusEl.textContent = "Connection error: " + err.message;
+    console.error(err);
+  }
+}
+
+function onEvent(event, data) {
+  console.log("TC event:", event, data);
+}
+
+// ---- Read objects & their properties from the loaded model -----------
+// NOTE: exact ObjectProperties/property-set shape can vary slightly by
+// sync config — check console.log(props) on first real test and adjust
+// the field lookups below (findPset/findProp) if names differ.
+async function loadObjects() {
+  const models = await API.viewer.getModels();
+  modelObjectsCache = [];
+
+  for (const model of models) {
+    const objIds = await API.viewer.getObjects({ modelId: model.id, selectionMode: "all" });
+    const runtimeIds = (objIds && objIds[0] && objIds[0].objectRuntimeIds) || [];
+    if (!runtimeIds.length) continue;
+
+    const propsList = await API.viewer.getObjectProperties(model.id, runtimeIds);
+
+    for (const obj of propsList) {
+      if (!isSteelClass(obj)) continue; // matches .rpt rule: MATERIAL_TYPE==STEEL && CLASS_ATTR in [500-599]∪[1100-1199]
+
+      const material = findProp(obj, "MATERIAL");
+      const weightM = parseFloat(findProp(obj, "WEIGHT_M"));   // kg/m expected
+      const weight = parseFloat(findProp(obj, "WEIGHT"));      // total, kg or t depending on sync — verify on test
+
+      if (!material || isNaN(weightM)) continue; // skip non-steel / incomplete objects
+
+      modelObjectsCache.push({
+        material,
+        weightM_kg: weightM,
+        weightNet_t: (weight || 0) / 1000 // TODO: confirm unit (kg vs already tons) on real data
+      });
+    }
+  }
+}
+
+// Same rule as the reference .rpt (lines 1534/1653/1719):
+// MATERIAL_TYPE == "STEEL" && (CLASS_ATTR 500-599 OR 1100-1199)
+function isSteelClass(obj) {
+  const materialType = findProp(obj, "MATERIAL_TYPE");
+  const classAttr = parseInt(findProp(obj, "CLASS_ATTR"), 10);
+  if (materialType !== "STEEL" || isNaN(classAttr)) return false;
+  return (classAttr >= 500 && classAttr <= 599) || (classAttr >= 1100 && classAttr <= 1199);
+}
+
+// Looks through an object's property sets for a property by name.
+function findProp(obj, propName) {
+  const psets = obj.properties || obj.propertySets || [];
+  for (const pset of psets) {
+    const props = pset.properties || [];
+    for (const p of props) {
+      if ((p.name || "").toUpperCase() === propName) return p.value;
+    }
+  }
+  return null;
+}
+
+// ---- Bucketing ---------------------------------------------------------
+function buildTable() {
+  // { material: { bucket: totalTons } }
+  const table = {};
+  for (const o of modelObjectsCache) {
+    const bucket = bucketFor(o.weightM_kg);
+    if (!table[o.material]) {
+      table[o.material] = { XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0 };
+    }
+    table[o.material][bucket] += o.weightNet_t;
+  }
+  return table;
+}
+
+function renderPreview(table) {
+  let html = "<table><tr><th>Material</th>" +
+    BUCKET_ORDER.map(b => `<th>${b}</th>`).join("") + "<th>Total</th></tr>";
+  for (const mat in table) {
+    const row = table[mat];
+    const total = BUCKET_ORDER.reduce((s, b) => s + row[b], 0);
+    html += `<tr><td>${mat}</td>` +
+      BUCKET_ORDER.map(b => `<td>${row[b].toFixed(3)}</td>`).join("") +
+      `<td>${total.toFixed(3)}</td></tr>`;
+  }
+  html += "</table>";
+  document.getElementById("preview").innerHTML = html;
+}
+
+// ---- PDF generation ------------------------------------------------------
+function generatePDF(table) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  const project = document.getElementById("hf_project").value;
+  const part = document.getElementById("hf_part").value;
+  const rev = document.getElementById("hf_rev").value;
+  const ground = document.getElementById("hf_ground").value;
+  const cu = document.getElementById("hf_cu").value;
+
+  // Header — logo placeholders left blank until logo files are supplied.
+  // Once you have the thyssenkrupp / ENDC logo image files, load them as
+  // base64 and use doc.addImage(base64, 'PNG', x, y, w, h) here.
+  doc.setFontSize(14);
+  doc.text("STRUCTURAL STEEL", 14, 15);
+  doc.setFontSize(10);
+  doc.text(`Project: ${project}`, 14, 24);
+  doc.text(`Part: ${part}`, 14, 30);
+  doc.text(`Rev: ${rev}`, 100, 24);
+  doc.text(`Ground Level: ${ground}`, 100, 30);
+  doc.text(`CU Name: ${cu}`, 14, 36);
+
+  doc.setFontSize(8);
+  doc.text("This report is generated automatically from live model data synced to Trimble Connect.", 14, 44);
+
+  let y = 54;
+  const colX = [14, 60, 80, 100, 120, 140, 160, 180];
+  const headers = ["Material", ...BUCKET_ORDER, "Total"];
+  doc.setFontSize(9);
+  headers.forEach((h, i) => doc.text(h, colX[i], y));
+  y += 6;
+
+  for (const mat in table) {
+    const row = table[mat];
+    const total = BUCKET_ORDER.reduce((s, b) => s + row[b], 0);
+    const values = [mat, ...BUCKET_ORDER.map(b => row[b].toFixed(3)), total.toFixed(3)];
+    values.forEach((v, i) => doc.text(String(v), colX[i], y));
+    y += 6;
+  }
+
+  doc.save(`QTO_Steel_${project}_${rev}.pdf`);
+}
+
+btn.addEventListener("click", () => {
+  const table = buildTable();
+  renderPreview(table);
+  generatePDF(table);
+});
+
+init();
+</script>
+</body>
+</html>

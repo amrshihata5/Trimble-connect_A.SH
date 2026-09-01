@@ -1,0 +1,13 @@
+{
+  "name": "QTO Steel Report",
+  "description": "Generates the Structural Steel QTO PDF report from live model data",
+  "extensions": [
+    {
+      "id": "qto-steel-report",
+      "title": "QTO Steel Report",
+      "type": "project",
+      "src": "https://YOUR_GITHUB_USERNAME.github.io/qto-extension/index.html",
+      "icon": "https://YOUR_GITHUB_USERNAME.github.io/qto-extension/icon.png"
+    }
+  ]
+}
