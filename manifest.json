@@ -1,13 +1,6 @@
 {
-  "name": "QTO Steel Report",
+  "title": "QTO Steel Report",
   "description": "Generates the Structural Steel QTO PDF report from live model data",
-  "extensions": [
-    {
-      "id": "qto-steel-report",
-      "title": "QTO Steel Report",
-      "type": "project",
-      "src": "https://amrshihata5..github.io/Trimble-connect_A.SH/index.html",
-      "icon": "https://amrshihata5..github.io/Trimble-connect_A.SH/icon.png"
-    }
-  ]
+  "url": "https://amrshihata5.github.io/Trimble-connect_A.SH/index.html",
+  "icon": "https://amrshihata5.github.io/Trimble-connect_A.SH/icon.png"
 }
