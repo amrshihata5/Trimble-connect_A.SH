@@ -54,7 +54,7 @@ const btn = document.getElementById("btnGenerate");
 async function init() {
   try {
     API = await TrimbleConnectWorkspace.connect(window.parent, onEvent, 30000);
-    await API.extension.requestPermission("accessToken");
+    await API.extension.requestPermission("accesstoken");
     statusEl.textContent = "Connected. Reading model objects...";
     await loadObjects();
     btn.disabled = false;
