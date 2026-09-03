@@ -2,5 +2,6 @@
   "title": "QTO Steel Report",
   "description": "Generates the Structural Steel QTO PDF report from live model data",
   "url": "https://amrshihata5.github.io/Trimble-connect_A.SH/index.html",
-  "icon": "https://amrshihata5.github.io/Trimble-connect_A.SH/icon.png"
+  "icon": "https://amrshihata5.github.io/Trimble-connect_A.SH/icon.png",
+  "extensionType": ["3dviewer"]
 }
