@@ -55,10 +55,8 @@ async function init() {
   try {
     API = await TrimbleConnectWorkspace.connect(window.parent, onEvent, 30000);
     await API.extension.requestPermission("accesstoken");
-    statusEl.textContent = "Connected. Reading model objects...";
-    await loadObjects();
+    statusEl.textContent = "Connected. Select objects in the viewer, then click Generate Report.";
     btn.disabled = false;
-    statusEl.textContent = `Loaded ${modelObjectsCache.length} steel object(s). Ready to generate.`;
   } catch (err) {
     statusEl.textContent = "Connection error: " + err.message;
     console.error(err);
@@ -69,15 +67,14 @@ function onEvent(event, data) {
   console.log("TC event:", event, data);
 }
 
-// ---- Read objects & their properties from the loaded model -----------
-// NOTE: exact ObjectProperties/property-set shape can vary slightly by
-// sync config — check console.log(props) on first real test and adjust
-// the field lookups below (findPset/findProp) if names differ.
+// ---- Read currently selected objects & their properties ---------------
+// Uses the viewer's current selection (selected: true) rather than trying
+// to fetch every object automatically — this matches Trimble's ObjectSelector.
 async function loadObjects() {
   modelObjectsCache = [];
 
-  const modelObjectsList = await API.viewer.getObjects(); // no selector = all objects, all loaded models
-  console.log("modelObjectsList:", modelObjectsList);
+  const modelObjectsList = await API.viewer.getObjects({ selected: true });
+  console.log("modelObjectsList (selected):", modelObjectsList);
 
   for (const mo of modelObjectsList) {
     const runtimeIds = mo.objectRuntimeIds || [];
@@ -201,7 +198,15 @@ function generatePDF(table) {
   doc.save(`QTO_Steel_${project}_${rev}.pdf`);
 }
 
-btn.addEventListener("click", () => {
+btn.addEventListener("click", async () => {
+  btn.disabled = true;
+  statusEl.textContent = "Reading selected objects...";
+  await loadObjects();
+  statusEl.textContent = `Found ${modelObjectsCache.length} matching steel object(s).`;
+  btn.disabled = false;
+
+  if (modelObjectsCache.length === 0) return;
+
   const table = buildTable();
   renderPreview(table);
   generatePDF(table);
