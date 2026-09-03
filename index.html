@@ -83,6 +83,7 @@ async function loadObjects() {
     if (!runtimeIds.length) continue;
 
     const propsList = await API.viewer.getObjectProperties(model.id, runtimeIds);
+    console.log("RAW propsList[0]:", JSON.stringify(propsList[0], null, 2));
 
     for (const obj of propsList) {
       if (!isSteelClass(obj)) continue; // matches .rpt rule: MATERIAL_TYPE==STEEL && CLASS_ATTR in [500-599]∪[1100-1199]
