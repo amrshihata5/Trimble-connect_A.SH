@@ -77,10 +77,7 @@ async function loadObjects() {
   console.log("modelObjectsList (selected):", modelObjectsList);
 
   for (const mo of modelObjectsList) {
-    const runtimeIds = mo.objectRuntimeIds || [];
-    if (!runtimeIds.length) continue;
-
-    const propsList = await API.viewer.getObjectProperties(mo.modelId, runtimeIds);
+    const propsList = mo.objects || []; // ModelObjects.objects is already ObjectProperties[]
     console.log("RAW propsList[0]:", JSON.stringify(propsList[0], null, 2));
 
     for (const obj of propsList) {
