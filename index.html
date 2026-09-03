@@ -74,15 +74,16 @@ function onEvent(event, data) {
 // sync config — check console.log(props) on first real test and adjust
 // the field lookups below (findPset/findProp) if names differ.
 async function loadObjects() {
-  const models = await API.viewer.getModels();
   modelObjectsCache = [];
 
-  for (const model of models) {
-    const objIds = await API.viewer.getObjects({ modelId: model.id, selectionMode: "all" });
-    const runtimeIds = (objIds && objIds[0] && objIds[0].objectRuntimeIds) || [];
+  const modelObjectsList = await API.viewer.getObjects(); // no selector = all objects, all loaded models
+  console.log("modelObjectsList:", modelObjectsList);
+
+  for (const mo of modelObjectsList) {
+    const runtimeIds = mo.objectRuntimeIds || [];
     if (!runtimeIds.length) continue;
 
-    const propsList = await API.viewer.getObjectProperties(model.id, runtimeIds);
+    const propsList = await API.viewer.getObjectProperties(mo.modelId, runtimeIds);
     console.log("RAW propsList[0]:", JSON.stringify(propsList[0], null, 2));
 
     for (const obj of propsList) {
