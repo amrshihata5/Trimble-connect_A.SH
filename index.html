@@ -87,19 +87,19 @@ async function loadObjects() {
       if (!isSteelClass(obj)) continue; // matches .rpt rule: MATERIAL_TYPE==STEEL && CLASS_ATTR in [500-599]∪[1100-1199]
 
       const material = findProp(obj, "MATERIAL");
-      const weightNet = parseFloat(findProp(obj, "WEIGHT_NET"));                     // tons — actual quantity to sum
-      const weightGross = parseFloat(findProp(obj, "WEIGHT_GROSS"));                 // tons — used for bucketing
+      const weightNet_kg = parseFloat(findProp(obj, "WEIGHT_NET"));                  // kg — actual quantity to sum
+      const weightGross_kg = parseFloat(findProp(obj, "WEIGHT_GROSS"));              // kg — used for bucketing
       const lengthGrossMm = parseFloat(findProp(obj, "LENGTH_GROSS"));               // mm — used for bucketing
 
-      if (!material || isNaN(weightGross) || isNaN(lengthGrossMm) || lengthGrossMm === 0) continue;
+      if (!material || isNaN(weightGross_kg) || isNaN(lengthGrossMm) || lengthGrossMm === 0) continue;
 
-      // kg/m = (weight in tons * 1,000,000) / length in mm
-      const weightPerM_kg = (weightGross * 1000000) / lengthGrossMm;
+      // kg/m = weight in kg / (length in mm / 1000)
+      const weightPerM_kg = (weightGross_kg * 1000) / lengthGrossMm;
 
       modelObjectsCache.push({
         material,
         weightM_kg: weightPerM_kg,
-        weightNet_t: isNaN(weightNet) ? weightGross : weightNet
+        weightNet_t: (isNaN(weightNet_kg) ? weightGross_kg : weightNet_kg) / 1000 // kg -> tons for report
       });
     }
   }
