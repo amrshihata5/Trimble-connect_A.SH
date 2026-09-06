@@ -28,6 +28,7 @@
 <label>CU Name</label><input id="hf_cu">
 
 <div id="status">Connecting to Trimble Connect...</div>
+<button id="btnPreview" disabled>Show Values</button>
 <button id="btnGenerate" disabled>Generate Report</button>
 
 <div id="preview"></div>
@@ -50,6 +51,7 @@ let modelObjectsCache = []; // {material, weightM_kg, weightNet_t}
 
 const statusEl = document.getElementById("status");
 const btn = document.getElementById("btnGenerate");
+const btnPreview = document.getElementById("btnPreview");
 
 async function init() {
   try {
@@ -57,6 +59,7 @@ async function init() {
     await API.extension.requestPermission("accesstoken");
     statusEl.textContent = "Connected. Select objects in the viewer, then click Generate Report.";
     btn.disabled = false;
+    btnPreview.disabled = false;
   } catch (err) {
     statusEl.textContent = "Connection error: " + err.message;
     console.error(err);
@@ -198,12 +201,29 @@ function generatePDF(table) {
   doc.save(`QTO_Steel_${project}_${rev}.pdf`);
 }
 
-btn.addEventListener("click", async () => {
+btnPreview.addEventListener("click", async () => {
   btn.disabled = true;
+  btnPreview.disabled = true;
   statusEl.textContent = "Reading selected objects...";
   await loadObjects();
   statusEl.textContent = `Found ${modelObjectsCache.length} matching steel object(s).`;
   btn.disabled = false;
+  btnPreview.disabled = false;
+
+  if (modelObjectsCache.length === 0) return;
+
+  const table = buildTable();
+  renderPreview(table);
+});
+
+btn.addEventListener("click", async () => {
+  btn.disabled = true;
+  btnPreview.disabled = true;
+  statusEl.textContent = "Reading selected objects...";
+  await loadObjects();
+  statusEl.textContent = `Found ${modelObjectsCache.length} matching steel object(s).`;
+  btn.disabled = false;
+  btnPreview.disabled = false;
 
   if (modelObjectsCache.length === 0) return;
 
