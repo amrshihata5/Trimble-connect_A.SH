@@ -114,7 +114,7 @@ function isSteelClass(obj) {
   const materialType = findProp(obj, "MATERIAL_TYPE");
   const classAttr = parseInt(findProp(obj, "CLASS_ATTR"), 10);
   if (materialType !== "STEEL" || isNaN(classAttr)) return false;
-  return (classAttr >= 500 && classAttr <= 599) || (classAttr >= 1100 && classAttr <= 1199);
+  return (classAttr >= 500 && classAttr <= 600) || (classAttr >= 1100 && classAttr <= 1199);
 }
 
 // Looks through an object's property sets for a property by name.
