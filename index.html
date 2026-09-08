@@ -210,7 +210,10 @@ btnPreview.addEventListener("click", async () => {
   btn.disabled = false;
   btnPreview.disabled = false;
 
-  if (modelObjectsCache.length === 0) return;
+  if (modelObjectsCache.length === 0) {
+    document.getElementById("preview").innerHTML = "";
+    return;
+  }
 
   const table = buildTable();
   renderPreview(table);
@@ -225,7 +228,10 @@ btn.addEventListener("click", async () => {
   btn.disabled = false;
   btnPreview.disabled = false;
 
-  if (modelObjectsCache.length === 0) return;
+  if (modelObjectsCache.length === 0) {
+    document.getElementById("preview").innerHTML = "";
+    return;
+  }
 
   const table = buildTable();
   renderPreview(table);
