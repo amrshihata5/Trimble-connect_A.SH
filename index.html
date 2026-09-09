@@ -32,6 +32,7 @@
 <button id="btnGenerate" disabled>Generate Report</button>
 
 <div id="preview"></div>
+<div id="materialTakeoff"></div>
 
 <script>
 // ---- Size bracket rule (kg/m -> bucket) ------------------------------
@@ -90,6 +91,7 @@ async function loadObjects() {
       if (!isSteelClass(obj)) continue; // matches .rpt rule: MATERIAL_TYPE==STEEL && CLASS_ATTR in [500-599]∪[1100-1199]
 
       const material = findProp(obj, "MATERIAL");
+      const profile = findProp(obj, "PROFILE") || "Unknown";
 
       // Different models sync different field sets. Fall back through
       // known variants in order of preference.
@@ -114,6 +116,7 @@ async function loadObjects() {
 
       modelObjectsCache.push({
         material,
+        profile,
         weightM_kg: weightPerM_kg,
         weightNet_t: (isNaN(weightNet_kg) ? weightPerM_kg : weightNet_kg) / 1000 // kg -> tons for report
       });
@@ -140,6 +143,35 @@ function findProp(obj, propName) {
     }
   }
   return null;
+}
+
+// ---- Material Takeoff (by profile) -------------------------------------
+function buildMaterialTakeoff() {
+  // { "material|profile": { material, profile, count, totalTons } }
+  const rows = {};
+  for (const o of modelObjectsCache) {
+    const key = `${o.material}|${o.profile}`;
+    if (!rows[key]) {
+      rows[key] = { material: o.material, profile: o.profile, count: 0, totalTons: 0 };
+    }
+    rows[key].count += 1;
+    rows[key].totalTons += o.weightNet_t;
+  }
+  return Object.values(rows).sort((a, b) =>
+    a.material === b.material ? a.profile.localeCompare(b.profile) : a.material.localeCompare(b.material)
+  );
+}
+
+function renderMaterialTakeoff(rows) {
+  let html = "<h3>Material Takeoff</h3><table><tr><th>Material</th><th>Profile</th><th>Qty</th><th>Total (t)</th></tr>";
+  let grandTotal = 0;
+  for (const r of rows) {
+    grandTotal += r.totalTons;
+    html += `<tr><td>${r.material}</td><td>${r.profile}</td><td>${r.count}</td><td>${r.totalTons.toFixed(3)}</td></tr>`;
+  }
+  html += `<tr><td colspan="3"><b>Total</b></td><td><b>${grandTotal.toFixed(3)}</b></td></tr>`;
+  html += "</table>";
+  document.getElementById("materialTakeoff").innerHTML = html;
 }
 
 // ---- Bucketing ---------------------------------------------------------
@@ -225,11 +257,13 @@ btnPreview.addEventListener("click", async () => {
 
   if (modelObjectsCache.length === 0) {
     document.getElementById("preview").innerHTML = "";
+    document.getElementById("materialTakeoff").innerHTML = "";
     return;
   }
 
   const table = buildTable();
   renderPreview(table);
+  renderMaterialTakeoff(buildMaterialTakeoff());
 });
 
 btn.addEventListener("click", async () => {
@@ -243,11 +277,13 @@ btn.addEventListener("click", async () => {
 
   if (modelObjectsCache.length === 0) {
     document.getElementById("preview").innerHTML = "";
+    document.getElementById("materialTakeoff").innerHTML = "";
     return;
   }
 
   const table = buildTable();
   renderPreview(table);
+  renderMaterialTakeoff(buildMaterialTakeoff());
   generatePDF(table);
 });
 
